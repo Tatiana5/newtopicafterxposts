@@ -103,7 +103,7 @@ class listener implements EventSubscriberInterface
 
 			//Number of topic
 			$this->next_topic_subject = $this->topic_title;
-			if(preg_match('/ № (\d+)$/', $this->next_topic_subject, $topic_number))
+			if (preg_match('/ № (\d+)$/', $this->next_topic_subject, $topic_number))
 			{
 				$next_topic_number = (int) $topic_number[1] + 1;
 				$this->next_topic_subject = preg_replace('/ № (\d+)$/', '', $this->next_topic_subject);
@@ -157,10 +157,10 @@ class listener implements EventSubscriberInterface
 
 			// Lock old topic
 			$this->db->sql_query('UPDATE ' . $this->topics_table . ' SET topic_status = ' . ITEM_LOCKED . ' WHERE topic_id = ' . (int) $data['topic_id'] . ' AND topic_moved_id = 0');
-				
+
 			$data['message'] = generate_text_for_edit($data['message'], $data['bbcode_uid'], true);
 			$data['message'] = htmlspecialchars(html_entity_decode($data['message']['text']));
-				
+
 			// variables to hold the parameters for submit_post
 			$poll = $uid = $bitfield = $options = '';
 			$allow_bbcode = $data['enable_bbcode'];
@@ -172,20 +172,20 @@ class listener implements EventSubscriberInterface
 
 			//If old post has attachments
 			preg_match_all('/\[attachment=\d+\](.*)\[\/attachment\]/U', $next_topic_text, $inline_attach);
-				
+
 			$sql = 'SELECT attach_id, real_filename, attach_comment, extension, mimetype, thumbnail FROM ' . $this->table_prefix . 'attachments' . ' WHERE post_msg_id = ' . (int) $data['post_id'];
 			$result = $this->db->sql_query($sql);
 
 			while ($attach_row = $this->db->sql_fetchrow($result))
 			{
-				if(in_array($attach_row['real_filename'], $inline_attach[1]))
+				if (in_array($attach_row['real_filename'], $inline_attach[1]))
 				{
-					if(strpos($attach_row['mimetype'], 'image/') !== false)
+					if (strpos($attach_row['mimetype'], 'image/') !== false)
 					{
 						$attach_string = '[img]' . generate_board_url();
 						$attach_string .= '/download/file.php?id=' . (int) $attach_row['attach_id'];
 						$attach_string .=	'[/img]';
-						
+
 						$next_topic_text = preg_replace('/\[attachment=\d+\]' . preg_quote($attach_row['real_filename']) . '\[\/attachment\]/', $attach_string, $next_topic_text);
 					}
 					else
@@ -210,10 +210,10 @@ class listener implements EventSubscriberInterface
 				}
 			}
 			$this->db->sql_freeresult($result);
-			
-			generate_text_for_storage($next_topic_text, $uid, $bitfield, $options, $allow_bbcode, $allow_urls, $allow_smilies);	
-			
-			$next_topic_data = array( 
+
+			generate_text_for_storage($next_topic_text, $uid, $bitfield, $options, $allow_bbcode, $allow_urls, $allow_smilies);
+
+			$next_topic_data = array(
 				'forum_id'		=> $data['forum_id'],
 				'icon_id'		=> $data['icon_id'],
 				'topic_title'	=> $this->next_topic_subject,
@@ -222,8 +222,8 @@ class listener implements EventSubscriberInterface
 				'enable_urls'		=> $data['enable_urls'],
 				'enable_sig'		=> $data['enable_sig'],
 				'message'		=> $next_topic_text,
-				'message_md5'	=> (string)md5($next_topic_text),
-								
+				'message_md5'	=> (string) md5($next_topic_text),
+
 				'bbcode_bitfield'	=> $bitfield,
 				'bbcode_uid'		=> $uid,
 
@@ -234,15 +234,15 @@ class listener implements EventSubscriberInterface
 				'forum_name'		=> $data['forum_name'],
 				'enable_indexing'	=> $data['enable_indexing'],
 			);
-				
+
 			$redirect = submit_post('post', $this->next_topic_subject, (($this->user->data['is_registered']) ? $this->user->data['username'] : $this->user->lang['GUEST']), POST_NORMAL, $poll, $next_topic_data);
-				
+
 			//Edit old topic
 			$this_topic_text = $data['message'] . '<br />[url=' . generate_board_url() . '/viewtopic.' . $this->php_ext . '?t=' . $next_topic_data['topic_id'] . ']' . $this->user->lang['NTAXP_NEXT_TOPIC'] . '[/url]';
 			generate_text_for_storage($this_topic_text, $uid, $bitfield, $options, true, true, true);
-			
+
 			$this_topic_data = array(
-				'forum_id'				=> (int)  $data['forum_id'],
+				'forum_id'				=> (int) $data['forum_id'],
 				'poster_id'				=> (int) $data['poster_id'],
 				'icon_id'				=> (int) $data['icon_id'],
 				'post_approved'			=> (isset($data['post_approved'])) ? $data['post_approved'] : false,
@@ -251,7 +251,7 @@ class listener implements EventSubscriberInterface
 				'enable_urls'			=> (bool) $data['enable_urls'],
 				'enable_sig'			=> (bool) $data['enable_sig'],
 				'topic_title'			=> $this->topic_title,
-				'message_md5'			=> (string)md5($this_topic_text),
+				'message_md5'			=> (string) md5($this_topic_text),
 				'attachment_data'		=> $data['attachment_data'],
 				'bbcode_bitfield'		=> $bitfield,
 				'bbcode_uid'			=> $uid,
@@ -261,12 +261,12 @@ class listener implements EventSubscriberInterface
 				'topic_first_post_id'	=> (isset($data['topic_first_post_id'])) ? (int) $data['topic_first_post_id'] : 0,
 				'topic_last_post_id'	=> (isset($data['topic_last_post_id'])) ? (int) $data['topic_last_post_id'] : 0,
 				'topic_time_limit'		=> (int) $data['topic_time_limit'],
-				'post_id'				=> (int)  $data['post_id'],
-				'topic_id'				=> (int)  $data['topic_id'],
+				'post_id'				=> (int) $data['post_id'],
+				'topic_id'				=> (int) $data['topic_id'],
 				'topic_posts_approved'	=> (isset($data['topic_posts_approved'])) ? (int) $data['topic_posts_approved'] : 0,
 				'topic_posts_unapproved'	=> (isset($data['topic_posts_unapproved'])) ? (int) $data['topic_posts_unapproved'] : 0,
 				'topic_posts_softdeleted'	=> (isset($data['topic_posts_softdeleted'])) ? (int) $data['topic_posts_softdeleted'] : 0,
-				
+
 				'enable_indexing'		=> (bool) $data['enable_indexing'],
 				'post_time'				=> (isset($data['post_time'])) ? (int) $data['post_time'] : time(),
 				'post_edit_reason'		=> $data['post_edit_reason'],
@@ -275,9 +275,9 @@ class listener implements EventSubscriberInterface
 				'notify'				=> (isset($data['notify'])) ? $data['notify'] : false,
 				'notify_set'			=> (isset($data['notify_set'])) ? $data['notify_set'] : false,
 			);
-				
+
 			submit_post('edit', $event['subject'], (($this->user->data['is_registered']) ? $this->user->data['username'] : $this->user->lang['GUEST']), POST_NORMAL, $poll, $this_topic_data);
-				
+
 			//Adding to the log
 			add_log('mod', $data['forum_id'], $data['topic_id'], 'LOG_TOPIC_ADDED', $this->next_topic_subject, ($this->user->data['is_registered']) ? $this->user->data['username'] : $this->user->lang['GUEST']);
 
