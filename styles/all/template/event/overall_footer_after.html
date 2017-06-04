@@ -1,0 +1,31 @@
+<!-- IF S_QUICK_REPLY -->
+	<script>
+		function getParameterByName(name, url) {
+			if (!url) {
+				url = window.location.href;
+			}
+
+			name = name.replace(/[\[\]]/g, "\\$&");
+			var regex = new RegExp("[?&]" + name + "(=([^&#]*)|&|#|$)"),
+				results = regex.exec(url);
+
+			if (!results) {
+				return null;
+			}
+
+			if (!results[2]) {
+				return '';
+			}
+
+			return decodeURIComponent(results[2].replace(/\+/g, " "));
+		}
+
+		$('#qr_posts').on('qr_loaded', function(e, elem) {
+			var qr_action = $('#qr_postform').attr('action'),
+				regex = new RegExp("[?&](t=([^&#]*)|&|#|$)"),
+						results = regex.exec(qr_action);
+			qr_action = qr_action.replace(results[1], 't=' + getParameterByName('t'));
+			$('#qr_postform').attr('action', qr_action);
+		});
+	</script>
+<!-- ENDIF -->
