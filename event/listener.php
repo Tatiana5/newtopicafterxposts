@@ -86,7 +86,7 @@ class listener implements EventSubscriberInterface
 		$data = $event['data'];
 		$post_data = $event['post_data'];
 
-		$this->postcount = $post_data['topic_posts_approved'] + $post_data['topic_posts_unapproved'];
+		$this->postcount = (isset($post_data['topic_posts_approved']) && isset($post_data['topic_posts_unapproved'])) ? ($post_data['topic_posts_approved'] + $post_data['topic_posts_unapproved']) : 0;
 		if ($mode == 'reply' && $this->postcount >= (int) $this->config['ntaxp_posts'])
 		{
 			if (isset($data['topic_title']))
