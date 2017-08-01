@@ -168,7 +168,7 @@ class listener implements EventSubscriberInterface
 			$allow_smilies = $data['enable_smilies'];
 
 			//Create next topic
-			$next_topic_text   = '[url=' . generate_board_url() . '/viewtopic.' . $this->php_ext . '?t=' . $data['topic_id'] . ']' . $this->user->lang['NTAXP_PREVIOUS_TOPIC'] . '[/url]<br />' . $data['message'];
+			$next_topic_text   = '[url=' . generate_board_url() . '/viewtopic.' . $this->php_ext . '?t=' . $data['topic_id'] . ']' . $this->user->lang['NTAXP_PREVIOUS_TOPIC'] . '[/url]<br /> ' . $data['message'];
 
 			//If old post has attachments
 			preg_match_all('/\[attachment=\d+\](.*)\[\/attachment\]/U', $next_topic_text, $inline_attach);
@@ -205,7 +205,7 @@ class listener implements EventSubscriberInterface
 					}
 					else
 					{
-						$next_topic_text .= '<br />[url=' . generate_board_url() . '/download/file.php?id=' . (int) $attach_row['attach_id'] . ']' . $attach_row['real_filename'] . '[/url]';
+						$next_topic_text .= ' <br />[url=' . generate_board_url() . '/download/file.php?id=' . (int) $attach_row['attach_id'] . ']' . $attach_row['real_filename'] . '[/url]';
 					}
 				}
 			}
@@ -240,7 +240,7 @@ class listener implements EventSubscriberInterface
 			$redirect = submit_post('post', $this->next_topic_subject, (($this->user->data['is_registered']) ? $this->user->data['username'] : $this->user->lang['GUEST']), POST_NORMAL, $poll, $next_topic_data);
 
 			//Edit old topic
-			$this_topic_text = $data['message'] . '<br />[url=' . generate_board_url() . '/viewtopic.' . $this->php_ext . '?t=' . $next_topic_data['topic_id'] . ']' . $this->user->lang['NTAXP_NEXT_TOPIC'] . '[/url]';
+			$this_topic_text = $data['message'] . ' <br />[url=' . generate_board_url() . '/viewtopic.' . $this->php_ext . '?t=' . $next_topic_data['topic_id'] . ']' . $this->user->lang['NTAXP_NEXT_TOPIC'] . '[/url]';
 			generate_text_for_storage($this_topic_text, $uid, $bitfield, $options, true, true, true);
 			$this_topic_text = str_replace('&lt;br /&gt;', '<br/>', $this_topic_text);
 
