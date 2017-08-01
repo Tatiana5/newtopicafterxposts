@@ -3,7 +3,7 @@
     "type": "phpbb-extension",
     "description": "Start new topic after X posts",
     "homepage": "https://www.phpbbguru.net/community",
-    "version": "0.0.1",
+    "version": "0.0.2",
     "time": "2017-05-22",
     "license": "GPL-2.0",
     "authors": [

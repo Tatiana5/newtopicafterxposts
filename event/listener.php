@@ -212,9 +212,11 @@ class listener implements EventSubscriberInterface
 			$this->db->sql_freeresult($result);
 
 			generate_text_for_storage($next_topic_text, $uid, $bitfield, $options, $allow_bbcode, $allow_urls, $allow_smilies);
+			$next_topic_text = str_replace('&lt;br /&gt;', '<br/>', $next_topic_text);
 
 			$next_topic_data = array(
 				'forum_id'		=> $data['forum_id'],
+				'poster_id'		=> (int) $data['poster_id'],
 				'icon_id'		=> $data['icon_id'],
 				'topic_title'	=> $this->next_topic_subject,
 				'enable_bbcode'		=> $data['enable_bbcode'],
@@ -240,6 +242,7 @@ class listener implements EventSubscriberInterface
 			//Edit old topic
 			$this_topic_text = $data['message'] . '<br />[url=' . generate_board_url() . '/viewtopic.' . $this->php_ext . '?t=' . $next_topic_data['topic_id'] . ']' . $this->user->lang['NTAXP_NEXT_TOPIC'] . '[/url]';
 			generate_text_for_storage($this_topic_text, $uid, $bitfield, $options, true, true, true);
+			$this_topic_text = str_replace('&lt;br /&gt;', '<br/>', $this_topic_text);
 
 			$this_topic_data = array(
 				'forum_id'				=> (int) $data['forum_id'],
