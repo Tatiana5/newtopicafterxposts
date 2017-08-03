@@ -117,7 +117,7 @@ class listener implements EventSubscriberInterface
 			$this->next_topic_subject = mb_substr($this->next_topic_subject, 0, 112 - strlen($next_topic_number));
 			$this->next_topic_subject .= ' № ' . $next_topic_number;
 
-			$sql = 'SELECT topic_id FROM ' . $this->topics_table . " WHERE topic_title = '" .  mysql_escape_string($this->next_topic_subject) . "'";
+			$sql = 'SELECT topic_id FROM ' . $this->topics_table . " WHERE topic_title = '" .  $this->db->sql_escape($this->next_topic_subject) . "'";
 			$result = $this->db->sql_query_limit($sql, 1);
 			$topic_exist = $this->db->sql_fetchrow($result);
 			$this->db->sql_freeresult($result);
