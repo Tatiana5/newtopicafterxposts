@@ -25,6 +25,8 @@ $lang = array_merge($lang, array(
 	'NTAXP_NEXT_TOPIC'		=> 'Следующая тема',
 	'NTAXP_PREVIOUS_TOPIC'	=> 'Предыдущая тема',
 	//
+	//
+	'NTAXP_ACP_COPY_FIRST_POST'	=> 'Копировать первое сообщение из предыдущей темы при автосоздании новой',
 	'NTAXP_ACP_POSTS'			=> 'Количество ответов в теме для создания новой',
 	'NTAXP_ACP_POSTS_EXPLAIN'	=> 'Первое сообщение в теме - это не ответ',
 ));

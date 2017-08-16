@@ -10,5 +10,7 @@ services:
             - %core.php_ext%
             - %core.table_prefix%
             - %tables.topics%
+            - %tables.posts%
+            - %tables.users%
         tags:
             - { name: event.listener }

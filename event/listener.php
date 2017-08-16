@@ -26,6 +26,7 @@ class listener implements EventSubscriberInterface
 	{
 		return array(
 			'core.posting_modify_submit_post_before'		=> 'find_next_topic',
+			'core.submit_post_modify_sql_data'				=> 'fix_topic_poster',
 			'core.submit_post_end'				=> 'post_new_topic',
 			'core.acp_board_config_edit_add'	=> 'acp_settings'
 		);
@@ -55,6 +56,12 @@ class listener implements EventSubscriberInterface
 	/** @var string topics_table */
 	protected $topics_table;
 
+	/** @var string posts_table */
+	protected $posts_table;
+
+	/** @var string users_table */
+	protected $users_table;
+
 	/** @var string topic_title */
 	protected $topic_title = '';
 
@@ -64,11 +71,15 @@ class listener implements EventSubscriberInterface
 	/** @var number postcount */
 	protected $postcount = 0;
 
+	/** @var array new_topic_poster */
+	protected $new_topic_poster = array();
+
 	/**
 	* Constructor
 	*/
 	public function __construct(\phpbb\config\config $config, \phpbb\db\driver\driver_interface $db, \phpbb\user $user,
-								\phpbb\request\request $request, $phpbb_root_path, $php_ext, $table_prefix, $topics_table)
+								\phpbb\request\request $request, $phpbb_root_path, $php_ext,
+								$table_prefix, $topics_table, $posts_table, $users_table)
 	{
 		$this->config = $config;
 		$this->db = $db;
@@ -78,6 +89,8 @@ class listener implements EventSubscriberInterface
 		$this->php_ext = $php_ext;
 		$this->table_prefix = $table_prefix;
 		$this->topics_table = $topics_table;
+		$this->posts_table = $posts_table;
+		$this->users_table = $users_table;
 	}
 
 	public function find_next_topic($event)
@@ -168,63 +181,69 @@ class listener implements EventSubscriberInterface
 			$allow_smilies = $data['enable_smilies'];
 
 			//Create next topic
-			$next_topic_text   = '[url=' . generate_board_url() . '/viewtopic.' . $this->php_ext . '?t=' . $data['topic_id'] . ']' . $this->user->lang['NTAXP_PREVIOUS_TOPIC'] . '[/url]<br /> ' . $data['message'];
-
-			//If old post has attachments
-			preg_match_all('/\[attachment=\d+\](.*)\[\/attachment\]/U', $next_topic_text, $inline_attach);
-
-			$sql = 'SELECT attach_id, real_filename, attach_comment, extension, mimetype, thumbnail FROM ' . $this->table_prefix . 'attachments' . ' WHERE post_msg_id = ' . (int) $data['post_id'];
-			$result = $this->db->sql_query($sql);
-
-			while ($attach_row = $this->db->sql_fetchrow($result))
+			if ($this->config['ntaxp_copy_first_post'])
 			{
-				if (in_array($attach_row['real_filename'], $inline_attach[1]))
-				{
-					if (strpos($attach_row['mimetype'], 'image/') !== false)
-					{
-						$attach_string = '[img]' . generate_board_url();
-						$attach_string .= '/download/file.php?id=' . (int) $attach_row['attach_id'];
-						$attach_string .=	'[/img]';
+				$topic_id = 0;
 
-						$next_topic_text = preg_replace('/\[attachment=\d+\]' . preg_quote($attach_row['real_filename']) . '\[\/attachment\]/', $attach_string, $next_topic_text);
-					}
-					else
-					{
-						$next_topic_text = preg_replace('/\[attachment=\d+\]' . preg_quote($attach_row['real_filename']) . '\[\/attachment\]/', '[url=' . generate_board_url() . '/download/file.php?id=' . (int) $attach_row['attach_id'] . ']' . $attach_row['real_filename'] . '[/url]', $next_topic_text);
-					}
+				$sql = 'SELECT p.post_text, p.post_id, p.poster_id, p.bbcode_uid, t.topic_first_poster_name, t.topic_id, u.user_colour, p.poster_ip FROM ' . $this->topics_table . ' t
+
+				LEFT JOIN ' . $this->posts_table . ' p
+				ON p.post_id = t.topic_first_post_id
+
+				LEFT JOIN ' . $this->users_table . ' u
+				ON u.user_id = p.poster_id
+
+				WHERE t.topic_last_post_id = ' . (int) $data['post_id'];
+
+				$result = $this->db->sql_query_limit($sql, 1);
+				while ($row = $this->db->sql_fetchrow($result))
+				{
+					$next_topic_first_post = generate_text_for_edit($row['post_text'], $row['bbcode_uid'], true);
+					$next_topic_first_post = htmlspecialchars(html_entity_decode($next_topic_first_post['text']));
+					$next_topic_first_post = '[url=' . generate_board_url() . '/viewtopic.' . $this->php_ext . '?t=' . $data['topic_id'] . ']' . $this->user->lang['NTAXP_PREVIOUS_TOPIC'] . ': ' . $this->topic_title . '[/url]' . sprintf("\n") . $next_topic_first_post;
+
+					//If old post has attachments
+					$next_topic_first_post = $this->check_attachments($next_topic_first_post, $row['post_id']);
+
+					$first_post_poster_id = $row['poster_id'];
+					$first_post_username = $row['topic_first_poster_name'];
+					$topic_id = $row['topic_id'];
+
+					$this->new_topic_poster = array(
+						'user_id'		=> $row['poster_id'],
+						'username'		=> $row['topic_first_poster_name'],
+						'user_colour'	=> $row['user_color'],
+						'user_ip'		=> $row['poster_ip']
+					);
 				}
-				else
-				{
-					if (strpos($attach_row['mimetype'], 'image/') !== false)
-					{
-						$attach_string = '[img]' . generate_board_url();
-						$attach_string .= '/download/file.php?id=' . (int) $attach_row['attach_id'];
-						$attach_string .=	'[/img]';
+				$this->db->sql_freeresult($result);
 
-						$next_topic_text .= $attach_string;
-					}
-					else
-					{
-						$next_topic_text .= ' <br />[url=' . generate_board_url() . '/download/file.php?id=' . (int) $attach_row['attach_id'] . ']' . $attach_row['real_filename'] . '[/url]';
-					}
+				if (!$topic_id)
+				{
+					return;
 				}
 			}
-			$this->db->sql_freeresult($result);
+			else
+			{
+				$next_topic_first_post   = '[url=' . generate_board_url() . '/viewtopic.' . $this->php_ext . '?t=' . $data['topic_id'] . ']' . $this->user->lang['NTAXP_PREVIOUS_TOPIC'] . ': ' . $this->topic_title . '[/url]' . sprintf("\n") . $data['message'];
+				$first_post_poster_id = $data['poster_id'];
+				$first_post_username = ($this->user->data['is_registered']) ? $this->user->data['username'] : $this->user->lang['GUEST'];
+			}
 
-			generate_text_for_storage($next_topic_text, $uid, $bitfield, $options, $allow_bbcode, $allow_urls, $allow_smilies);
-			$next_topic_text = str_replace('&lt;br /&gt;', '<br/>', $next_topic_text);
+			generate_text_for_storage($next_topic_first_post, $uid, $bitfield, $options, $allow_bbcode, $allow_urls, $allow_smilies);
+			//$next_topic_first_post = str_replace('&lt;br /&gt;', '<br/>', $next_topic_first_post);
 
 			$next_topic_data = array(
 				'forum_id'		=> $data['forum_id'],
-				'poster_id'		=> (int) $data['poster_id'],
+				'poster_id'		=> (int) $first_post_poster_id,
 				'icon_id'		=> $data['icon_id'],
 				'topic_title'	=> $this->next_topic_subject,
 				'enable_bbcode'		=> $data['enable_bbcode'],
 				'enable_smilies'	=> $data['enable_smilies'],
 				'enable_urls'		=> $data['enable_urls'],
 				'enable_sig'		=> $data['enable_sig'],
-				'message'		=> $next_topic_text,
-				'message_md5'	=> (string) md5($next_topic_text),
+				'message'		=> $next_topic_first_post,
+				'message_md5'	=> (string) md5($next_topic_first_post),
 
 				'bbcode_bitfield'	=> $bitfield,
 				'bbcode_uid'		=> $uid,
@@ -237,12 +256,61 @@ class listener implements EventSubscriberInterface
 				'enable_indexing'	=> $data['enable_indexing'],
 			);
 
-			$redirect = submit_post('post', $this->next_topic_subject, (($this->user->data['is_registered']) ? $this->user->data['username'] : $this->user->lang['GUEST']), POST_NORMAL, $poll, $next_topic_data);
+			$redirect = submit_post('post', $this->next_topic_subject, $first_post_username, POST_NORMAL, $poll, $next_topic_data);
+
+			//Answer in the new topic
+			if ($this->config['ntaxp_copy_first_post'])
+			{
+				$next_topic_text = $data['message'];
+
+				//If old post has attachments
+				$next_topic_text = $this->check_attachments($next_topic_text, $data['post_id']);
+
+				$uid = $bitfield = $options = '';
+				generate_text_for_storage($next_topic_text, $uid, $bitfield, $options, $allow_bbcode, $allow_urls, $allow_smilies);
+				//$next_topic_text = str_replace('&lt;br /&gt;', '<br/>', $next_topic_text);
+
+				$redirect = str_replace('&amp;', '&', $redirect);
+				parse_str($redirect, $topic_id);
+				$topic_id = $topic_id['t'];
+
+				if (!$topic_id)
+				{
+					return;
+				}
+
+				$next_topic_answer_data = array(
+					'forum_id'		=> $data['forum_id'],
+					'topic_id'		=> (int) $topic_id,
+					'poster_id'		=> (int) $data['poster_id'],
+					'icon_id'		=> $data['icon_id'],
+					'topic_title'	=> $this->next_topic_subject,
+					'enable_bbcode'		=> $data['enable_bbcode'],
+					'enable_smilies'	=> $data['enable_smilies'],
+					'enable_urls'		=> $data['enable_urls'],
+					'enable_sig'		=> $data['enable_sig'],
+					'message'		=> $next_topic_text,
+					'message_md5'	=> (string) md5($next_topic_text),
+
+					'bbcode_bitfield'	=> $bitfield,
+					'bbcode_uid'		=> $uid,
+
+					'post_edit_locked'	=> $data['post_edit_locked'],
+					'notify_set'		=> $data['notify_set'],
+					'notify'			=> $data['notify'],
+					'post_time' 		=> time(),
+					'forum_name'		=> $data['forum_name'],
+					'enable_indexing'	=> $data['enable_indexing'],
+				);
+
+				$this->postcount = 1;
+				$redirect = submit_post('reply', 'Re: ' . $this->next_topic_subject, (($this->user->data['is_registered']) ? $this->user->data['username'] : $this->user->lang['GUEST']), POST_NORMAL, $poll, $next_topic_answer_data);
+			}
 
 			//Edit old topic
-			$this_topic_text = $data['message'] . ' <br />[url=' . generate_board_url() . '/viewtopic.' . $this->php_ext . '?t=' . $next_topic_data['topic_id'] . ']' . $this->user->lang['NTAXP_NEXT_TOPIC'] . '[/url]';
+			$this_topic_text = $data['message'] . sprintf("\n") . '[url=' . generate_board_url() . '/viewtopic.' . $this->php_ext . '?t=' . $next_topic_data['topic_id'] . ']' . $this->user->lang['NTAXP_NEXT_TOPIC'] . '[/url]';
 			generate_text_for_storage($this_topic_text, $uid, $bitfield, $options, true, true, true);
-			$this_topic_text = str_replace('&lt;br /&gt;', '<br/>', $this_topic_text);
+			//$this_topic_text = str_replace('&lt;br /&gt;', '<br/>', $this_topic_text);
 
 			$this_topic_data = array(
 				'forum_id'				=> (int) $data['forum_id'],
@@ -288,6 +356,51 @@ class listener implements EventSubscriberInterface
 		}
 	}
 
+	public function check_attachments($check_text, $post_id)
+	{
+		preg_match_all('/\[attachment=\d+\](.*)\[\/attachment\]/U', $check_text, $inline_attach);
+
+		$sql = 'SELECT attach_id, real_filename, attach_comment, extension, mimetype, thumbnail FROM ' . $this->table_prefix . 'attachments' . ' WHERE post_msg_id = ' . (int) $post_id;
+		$result = $this->db->sql_query($sql);
+
+		while ($attach_row = $this->db->sql_fetchrow($result))
+		{
+			if (in_array($attach_row['real_filename'], $inline_attach[1]))
+			{
+				if (strpos($attach_row['mimetype'], 'image/') !== false)
+				{
+					$attach_string = '[img]' . generate_board_url();
+					$attach_string .= '/download/file.php?id=' . (int) $attach_row['attach_id'];
+					$attach_string .=	'[/img]';
+
+					$check_text = preg_replace('/\[attachment=\d+\]' . preg_quote($attach_row['real_filename']) . '\[\/attachment\]/', $attach_string, $check_text);
+				}
+				else
+				{
+					$check_text = preg_replace('/\[attachment=\d+\]' . preg_quote($attach_row['real_filename']) . '\[\/attachment\]/', '[url=' . generate_board_url() . '/download/file.php?id=' . (int) $attach_row['attach_id'] . ']' . $attach_row['real_filename'] . '[/url]', $check_text);
+				}
+			}
+			else
+			{
+				if (strpos($attach_row['mimetype'], 'image/') !== false)
+				{
+					$attach_string = '[img]' . generate_board_url();
+					$attach_string .= '/download/file.php?id=' . (int) $attach_row['attach_id'];
+					$attach_string .=	'[/img]';
+
+					$check_text .= $attach_string;
+				}
+				else
+				{
+					$check_text .= sprintf("\n") . '[url=' . generate_board_url() . '/download/file.php?id=' . (int) $attach_row['attach_id'] . ']' . $attach_row['real_filename'] . '[/url]';
+				}
+			}
+		}
+		$this->db->sql_freeresult($result);
+
+		return $check_text;
+	}
+
 	public function acp_settings($event)
 	{
 		$this->user->add_lang_ext('tatiana5/newtopicafterxposts', 'newtopicafterxposts');
@@ -295,7 +408,27 @@ class listener implements EventSubscriberInterface
 		$display_vars = $event['display_vars'];
 		array_pop($display_vars['vars']);
 		$display_vars['vars']['ntaxp_posts'] = array('lang' => 'NTAXP_ACP_POSTS',	'validate' => 'int:0',	'type' => 'number:0:99999', 'explain' => true);
+		$display_vars['vars']['ntaxp_copy_first_post'] = array('lang' => 'NTAXP_ACP_COPY_FIRST_POST',	'validate' => 'bool',	'type' => 'radio:yes_no', 'explain' => false);
 		$display_vars['vars']['legend3'] = 'ACP_SUBMIT_CHANGES';
 		$event['display_vars'] = $display_vars;
+	}
+
+	public function fix_topic_poster($event)
+	{
+		$post_mode = $event['post_mode'];
+
+		if ($post_mode == 'post' && sizeof($this->new_topic_poster))
+		{
+			$sql_data = $event['sql_data'];
+
+			$sql_data[$this->posts_table]['sql']['poster_id'] = $this->new_topic_poster['user_id'];
+			$sql_data[$this->posts_table]['sql']['poster_ip'] = $this->new_topic_poster['user_ip'];
+			$sql_data[$this->topics_table]['sql']['topic_poster'] = $this->new_topic_poster['user_id'];
+			$sql_data[$this->topics_table]['sql']['topic_first_poster_name'] = $this->new_topic_poster['username'];
+			$sql_data[$this->topics_table]['sql']['topic_first_poster_colour'] = ($this->new_topic_poster['user_colour']) ? $this->new_topic_poster['user_colour'] : '';
+
+			$this->new_topic_poster = array();
+			$event['sql_data'] = $sql_data;
+		}
 	}
 }
