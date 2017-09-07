@@ -2,15 +2,15 @@ services:
     tatiana5.newtopicafterxposts.listener:
         class: tatiana5\newtopicafterxposts\event\listener
         arguments:
-            - @config
-            - @dbal.conn
-            - @user
-            - @request
-            - %core.root_path%
-            - %core.php_ext%
-            - %core.table_prefix%
-            - %tables.topics%
-            - %tables.posts%
-            - %tables.users%
+            - '@config'
+            - '@dbal.conn'
+            - '@user'
+            - '@request'
+            - '%core.root_path%'
+            - '%core.php_ext%'
+            - '%core.table_prefix%'
+            - '%tables.topics%'
+            - '%tables.posts%'
+            - '%tables.users%'
         tags:
             - { name: event.listener }
